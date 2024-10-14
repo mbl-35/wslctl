@@ -78,7 +78,7 @@ jobs:
         #run: powershell -command "Invoke-Build -File ./.build.ps1 -Configuration 'Release' -ciMode"
         run: powershell -command "./make.ps1 release-ci"
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           path: |
             build/dist/*.zip
@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ build_release ]
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
       - run: cd artifact && md5sum *wslctl* > md5sums.txt
       - run: cd artifact && sha256sum *wslctl* > sha256sums.txt
       - uses: marvinpinto/action-automatic-releases@latest

@@ -13,7 +13,10 @@ Class AppConfig : JsonHashtableFile
 
         if (-Not $this.ContainsKey("appData"))
         {
-            $this.Add("appData", [FileUtils]::joinPath($env:LOCALAPPDATA, "Wslctl") )
+            if (($null -ne $env:WSLCTL) -And (Test-Path -Path $env:WSLCTL)) { $this.Add("appData", $env:WSLCTL); }
+            else  {
+                $this.Add("appData", [FileUtils]::joinPath($env:LOCALAPPDATA, "Wslctl") )
+            }
         }
      }
 

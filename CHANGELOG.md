@@ -1,3 +1,6 @@
+v2.3.3:
+* Allow to set WSLCTL environment variable to set Wslctl Data Path
+* Add upgrade command
 v2.3.2:
 * #27: [FONC] Change password policy
 * #25: Restore: error Could not set /lib/init/wsl-distro-name.sh

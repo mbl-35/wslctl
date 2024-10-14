@@ -272,6 +272,12 @@ Class DefaultController : AbstractController {
         Write-Host "* Wsl halted"
     }
 
+    [void] upgrade ([Array] $Arguments) {
+        $this._assertArgument( $Arguments, 0)
+
+        $wslService = [WslService][ServiceLocator]::getInstance().get('wsl-wrapper')
+        $wslService.upgrade()
+    }
 
     [void] default([Array] $Arguments) {
         $this._assertArgument( $Arguments, 0, 1)
@@ -388,6 +394,7 @@ Class DefaultController : AbstractController {
             @("   stop    <wsl_name>                               ", "Stop an instance by name"),
             @("   status [<wsl_name>]                              ", "List all or specified wsl Instance status"),
             @("   halt                                             ", "Shutdown all wsl instances"),
+            @("   upgrade                                          ", "Upgrade wsl engine"),
             @("   version [|<wsl_name>|default [|<version>]]       ", "Set/get default version or get wsl instances version"),
             @("   default [|<wsl_name>]                            ", "Set/get default distribution name")
             #@("   build   [<Wslfile>] [--tag=<distro_name>]       ", "Build an instance (docker like)")

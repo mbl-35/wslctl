@@ -210,6 +210,10 @@ Class WslService {
         return $LastExitCode
     }
 
+    [Int32] upgrade() {
+        & $this.Binary --update
+        return $LastExitCode
+    }
 
     [Boolean] isRunning([String] $name) {
         return (@( $this.list() | Select-Object | Where-Object {

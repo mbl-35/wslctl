@@ -211,7 +211,11 @@ Class WslService {
     }
 
     [Int32] upgrade() {
-        & $this.Binary --update
+        $prev = [Console]::OutputEncoding;
+        [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
+        $consoleResult = @( (& $this.Binary --update)  | Where-Object { $_ -ne "" } )
+        [Console]::OutputEncoding = $prev
+        write-Host $consoleResult -Separator "`n"
         return $LastExitCode
     }
 

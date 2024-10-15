@@ -1,3 +1,6 @@
+v2.3.5:
+* Fix output of upgrade command
+
 v2.3.4:
 * Allow to set WSLCTL environment variable to set Wslctl Data Path
 * Add upgrade command

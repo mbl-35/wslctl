@@ -68,6 +68,32 @@ Class FileUtils
         }
     }
 
+    static [String] slashJoin([String] $part1, [String] $part2, [String] $slash) {
+        $part1 = $part1.TrimEnd("/\\")
+        $part2 = $part2.Trim("/\\")
+        return "$part1$slash$part2"
+    }
+
+    static [String] toSlash([String] $path,[String] $slash) {
+        $path = $path -replace "\\", $slash;
+        $path = $path -replace '/', $slash
+        return $path;
+    }
+
+    static [String] pathToUnix([String] $winPath) 
+    {
+        if ($winPath.startsWith("/mnt/")) { return $winPath }
+        if ($winPath -like "[A-Za-z]:*" ) { $fullPath="$winPath" }
+        else { $fullPath = [FileUtils]::slashJoin((Get-Location).Path, "$winPath", '/') }
+        $drive = $fullPath.Substring(0, $fullPath.IndexOf(':')).ToLower()
+        $path = $fullPath.Substring($fullPath.IndexOf(':')+1)
+        $output = [FileUtils]::slashJoin("/mnt/$drive", $path, '/')
+        $c = $winPath[$winPath.Length - 1];
+        if ($c -eq '/' -Or $c -eq '\') { $output += "/"}
+
+        return [FileUtils]::toSlash("$output", '/')
+    }
+
     static [String] getResourcePath([String] $resource)
     {
         # Locate the resource directory ($PSScriptRoot or parent/parent $PSScriptRoot depending)

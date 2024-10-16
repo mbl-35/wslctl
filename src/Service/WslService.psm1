@@ -455,7 +455,7 @@ Class WslService {
     }
 
     [String] wslPath([String] $winPath) {
-        return & $this.Binary wslpath -u $winPath.Replace('\', '\\')
+        return [FileUtils]::pathToUnix($winPath)
     }
 
 

@@ -1,3 +1,6 @@
+v2.3.6:
+* #29: BUG: ini_val & init_usr - No such file or directory
+
 v2.3.5:
 * Fix output of upgrade command
 

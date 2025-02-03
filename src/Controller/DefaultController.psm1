@@ -152,7 +152,7 @@ Class DefaultController : AbstractController {
         Write-Host ('-' * 79) -ForegroundColor Yellow
         Write-Host "WARNING: This functionalite require to shutdown all WSL Instances."  -ForegroundColor Yellow
         Write-Host ('-' * 79)  -ForegroundColor Yellow
-        'Press any key to continue...'
+        Write-Host 'Press any key to continue...'
         [System.Console]::ReadKey()
 
         if ($wslService.rename($wslCurrentName, $wslNewName) -eq 0) {

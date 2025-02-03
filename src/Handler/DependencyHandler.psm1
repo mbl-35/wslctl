@@ -1,3 +1,4 @@
+using module Microsoft.PowerShell.Security
 using module "..\Application\ServiceLocator.psm1"
 using module "..\Application\AppConfig.psm1"
 

@@ -1,5 +1,6 @@
 v2.3.7:
-* #34: [BUG] user creation fail since Ubuntu 23
+* #33: [BUG] Cant create instance with name containing dot
+* #34: [BUG] User creation fail since Ubuntu 23
 * Add Microsoft.PowerShell.Security use
 
 v2.3.6:

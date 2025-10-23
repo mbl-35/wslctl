@@ -47,7 +47,7 @@ Class DefaultController : AbstractController {
         }
         $from, $wslName = $NoOptionsArguments
         if ( $null -eq $wslName) { $wslName = ($from -creplace '^[^/]*/', '') -creplace ':[^:]*$', '' }
-        if (-not ($wslName -cmatch '^[a-z0-9-]+$')) { throw "$wslName instance name is not valid" }
+        if (-not ($wslName -cmatch '^[.a-z0-9-]+$')) { throw "$wslName instance name is not valid" }
 
 
         Write-Host "* Create $wslName from $from"

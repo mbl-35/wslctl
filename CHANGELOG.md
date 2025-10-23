@@ -1,3 +1,7 @@
+v2.3.7:
+* #34: [BUG] user creation fail since Ubuntu 23
+* Add Microsoft.PowerShell.Security use
+
 v2.3.6:
 * #29: BUG: ini_val & init_usr - No such file or directory
 

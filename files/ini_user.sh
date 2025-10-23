@@ -3,6 +3,7 @@
 
 username="$1"
 grpname="$username"
+grpid=1000
 
 if [ -x /sbin/apk ]; then
 
@@ -21,15 +22,20 @@ if [ -x /sbin/apk ]; then
     sed -i 's/# *%sudo/%sudo/' /etc/sudoers
 
     # Create user
-    /usr/sbin/addgroup --gid 1000 $grpname
+    /usr/sbin/addgroup --gid $grpid $grpname
     /usr/sbin/adduser --disabled-password --gecos '' --uid 1000 -G $grpname  $username
     /usr/sbin/adduser $username sudo
 
 else
 
     # Ubuntu distributions
-    /usr/sbin/addgroup --gid 1000 $grpname
-    /usr/sbin/adduser --quiet --disabled-password --gecos '' --uid 1000 --gid 1000 $username
+    # release >ubuntu-23 already has user ubuntu with uid:gid set to 1000:1001
+    if /usr/bin/id -u ubuntu >/dev/null 2>&1; then
+        /usr/sbin/deluser --remove-home ubuntu >/dev/null
+    fi
+    grep ':1000:' /etc/group >/dev/null && grpid=1001
+    /usr/sbin/addgroup --gid $grpid $grpname
+    /usr/sbin/adduser --quiet --disabled-password --gecos '' --uid 1000 --gid $grpid $username
     /usr/sbin/usermod -aG sudo $username
 
 fi

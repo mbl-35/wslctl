@@ -463,6 +463,13 @@ Class WslService {
         return & $this.Binary wslpath -w $wslPath.Replace('\', '\\')
     }
 
+    [String] getCoreVersion() {
+        $prev = [Console]::OutputEncoding;
+        [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
+        $consoleResult = @( (& $this.Binary --version | Select-Object -First 1) -replace '[^.0-9]','')
+        [Console]::OutputEncoding = $prev
+        return $consoleResult
+    }
 
     [Int32] setDefaultVersion([int] $version) {
         if (($version -lt 1) -or ($version -gt 2)) {

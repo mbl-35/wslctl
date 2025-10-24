@@ -359,9 +359,23 @@ Class DefaultController : AbstractController {
 
     [void] __version([Array] $Arguments) {
         $this._assertArgument( $Arguments, 0)
+        $wslService = [WslService][ServiceLocator]::getInstance().get('wsl-wrapper')
         # display software version
-        $version = ([AppConfig][ServiceLocator]::getInstance().get('config')).version
-        [ExtendedConsole]::WriteColor($version)
+        $wslctlVersion = ([AppConfig][ServiceLocator]::getInstance().get('config')).version
+        $coreVersion = $wslService.getCoreVersion()
+        Write-Host "Versions:" -ForegroundColor Yellow
+        [ExtendedConsole]::WriteColor( @(
+                $("{0,3}" -f ""),
+                $("{0,-19} " -f "wslcore"),
+                $("{0,10} " -f "$coreVersion")
+            ),
+            @("White", "Green", "White"))
+        [ExtendedConsole]::WriteColor( @(
+                $("{0,3}" -f ""),
+                $("{0,-19} " -f "wslctl"),
+                $("{0,10} " -f "$wslctlVersion")
+            ),
+            @("White", "Green", "White"))
     }
 
     [void] __help([Array] $Arguments) {

@@ -8,5 +8,5 @@ Class WslElement
     [int]$wslVersion=1
     [string]$from="-"
     [string]$creation="-"
-
+    [int64]$size 
 }

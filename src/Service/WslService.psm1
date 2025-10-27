@@ -232,6 +232,24 @@ Class WslService {
                 }).Length -ne 0)
     }
 
+    [String] getInstanceRegEditPath([String] $name) {
+        $RegInfo=Get-ChildItem -Path "REGISTRY::HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss" |
+            Where-Object {
+                (Get-ItemProperty -Path $_.PSPath -Name DistributionName).DistributionName -eq "$name"
+            } | Select-Object -Property Name
+       if (-not $RegInfo ) {
+            throw 'No Regedit key found'
+        }
+        return "REGISTRY::" + $RegInfo.Name 
+    }
+
+    [int64] getInstanceSize([String] $name) {
+        $RegDInstancePath=$this.getInstanceRegEditPath($name)
+        $instanceDir = Get-ItemPropertyValue -Path $RegDInstancePath -Name BasePath
+        $instanceSize = (Get-ChildItem -Recurse -LiteralPath "$instanceDir" | Measure-Object -Property Length -sum).sum
+        return $instanceSize
+    }
+
     [Array] list() { return $this.list($false) }
     [Array] list([Boolean] $force) {
         if ($force -Or $null -eq $this.WslListCache) { $this.WslListCache = @() }
@@ -264,6 +282,8 @@ Class WslService {
                     }
                     $element.name, $status, $element.wslVersion = $lineWords
                     $element.running = $( $status -eq "Running" )
+                    $element.size = $this.getInstanceSize($element.name)
+                    
                     if ($this.Instances.ContainsKey($element.name)) {
                         $element.from = $this.Instances.$($element.name).image
                         $element.creation = $this.Instances.$($element.name).creation

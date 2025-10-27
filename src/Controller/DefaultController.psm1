@@ -189,6 +189,7 @@ Class DefaultController : AbstractController {
                     $("{0,1} " -f "$(If ($($_.default)) {"*"} Else {" "})"),
                     $("{0,-23} " -f "$($_.name)"),
                     $("{0,-20} " -f "$($_.creation)"),
+                    $("{0,13}  " -f [FileUtils]::sizeToHumanReadable($($_.size))),
                     $("{0}" -f (' ' * 4) + "$($_.from)")
                 ),
                 @("White", "Green", "White", "White"))

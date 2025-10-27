@@ -1,4 +1,5 @@
 v2.3.7:
+* #30: [EVOL] Add instance size in status
 * #32: Add wsl version in wslctl --version output
 * #33: [BUG] Cant create instance with name containing dot
 * #34: [BUG] User creation fail since Ubuntu 23

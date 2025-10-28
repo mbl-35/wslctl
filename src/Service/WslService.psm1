@@ -409,10 +409,20 @@ Class WslService {
     }
 
     [Int32] connect([string]$name) {
-        $shellArray = @('/bin/zsh', '/bin/bash', '/bin/sh')
-        $cmdTxt = (( $shellArray | ForEach-Object { "if [ -x $_ ]; then $_ --login;" } ) -Join " else ") + (" fi;" * $shellArray.Length) + ' exit $?'
+        # detect user defined shell inside instance
+        $prev = [Console]::OutputEncoding;
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        $userShell = @( (& $this.Binary "--user" root "--distribution" "$name" sh -c "getent passwd $env:USERNAME" ) ) -replace [char]0
+        [Console]::OutputEncoding = $prev
 
-        return $this.exec($name, @("$($cmdTxt)"))
+        if (-not $userShell){
+            # user shell not defined .. trying common shells
+            $shellArray = @('/bin/zsh', '/bin/bash', '/bin/sh')
+            $cmdTxt = (( $shellArray | ForEach-Object { "if [ -x $_ ]; then $_ --login;" } ) -Join " else ") + (" fi;" * $shellArray.Length) + ' exit $?'
+            return $this.exec($name, @("$($cmdTxt)"))
+        }
+        $userShell=$userShell.Trim().Split(":")[-1]
+        return $this.exec($name, @("$userShell","--login"))
     }
 
     [Int32] exec([string]$name, [string]$scriptPath, [array]$scriptArgs) { return $this.exec($name, $scriptPath, $scriptArgs, $false) }

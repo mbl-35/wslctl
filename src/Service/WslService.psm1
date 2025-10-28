@@ -140,7 +140,7 @@ Class WslService {
         #Write-Verbose $commandLineTxt
 
         # execute all
-        $returnCode = $this.exec($name, @( "$commandLineTxt" ))
+        $returnCode = $this.exec($name, @( "$commandLineTxt" ), $true)
         & $this.Binary --terminate $name
         return $returnCode
     }

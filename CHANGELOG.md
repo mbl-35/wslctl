@@ -4,6 +4,7 @@ v2.3.7:
 * #32: Add wsl version in wslctl --version output
 * #33: [BUG] Cant create instance with name containing dot
 * #34: [BUG] User creation fail since Ubuntu 23
+* [BUG] permissions denied on ini_val & ini_usr while restore
 * Add Microsoft.PowerShell.Security use
 
 v2.3.6:

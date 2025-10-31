@@ -1,4 +1,5 @@
 v2.3.7:
+* [EVOL] Create the wsl operation manager script
 * #28: [EVOL] Allows fish as defaut wsl shell (instance user defined shell)
 * #30: [EVOL] Add instance size in status
 * #32: Add wsl version in wslctl --version output

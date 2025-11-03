@@ -311,7 +311,7 @@ custom_operations() {
             return 2
         fi
 
-        if id "$username" >/dev/null; then
+        if id "$username" >/dev/null 2>&1; then
             printf "[!] User %s already exists !\n" "$username"
             return 2
         fi
@@ -323,15 +323,11 @@ custom_operations() {
             alpine)
                 # install / configure sudo
                 if ! command -v sudo >/dev/null; then
-                    pkgs_to_install=""
                     for pkg in sudo openssl shadow; do
                         if ! apk info 2>/dev/null | grep "$pkg" >/dev/null; then
-                            pkgs_to_install="$pkgs_to_install $pkg"
+                            run_op apk --no-cache add "$pkg"
                         fi
                     done
-                    if [ ! -z "$pkgs_to_install" ]; then
-                        run_op apk --no-cache add "$pkgs_to_install"
-                    fi
                     if ! grep sudo /etc/group; then
                         run_op addgroup --gid 65530 sudo
                     fi
@@ -398,7 +394,7 @@ terminal(){
 
 
     banner() (
-        printf "%s\n\n" "                      
+        printf "%s\n\n" "
             __      __ ___  _ __  
             \ \ /\ / // __|| '_ \    Wslctl System Preparation Tool  
              \ V  V / \__ \| |_) |   2021-2025, wslctl Project
@@ -566,6 +562,9 @@ system(){
         filename="$1"
         shift
         # normalize line spacing
+        if [ ! -f "$filename" ]; then
+            touch "$filename"
+        fi
         cfg=$(printf '%s\n\n' "$(sed '/^$/d' "$filename" | sed '2,$ s/^\[/\n\[/g')")
 
         while [ $# -gt 0 ]; do

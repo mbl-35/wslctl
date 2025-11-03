@@ -395,11 +395,12 @@ terminal(){
 
     banner() (
         printf "%s\n\n" "
-            __      __ ___  _ __  
-            \ \ /\ / // __|| '_ \    Wslctl System Preparation Tool  
-             \ V  V / \__ \| |_) |   2021-2025, wslctl Project
-              \_/\_/  |___/| .__/    Version $VERSION  
-                            |_|" | sed 's/^[ ]\{12\}//'
+                            _ 
+            __      __ ___ | |  ___   _ __   ___ 
+            \ \ /\ / // __|| | / _ \ | '_ \ / __|   Wslctl System Preparation Tool
+             \ V  V / \__ \| || (_) || |_) |\__ \   2021-2025, wslctl Project
+              \_/\_/  |___/|_| \___/ | .__/ |___/   Version $VERSION
+                                     |_|" | sed 's/^[ ]\{12\}//'
     )
 
     usage()( sed "/^$/q;1d;s/^#//;s/CMD/$CMD/g;s/^ -*//g;" "$0" | sed '$d' )

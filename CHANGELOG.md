@@ -1,7 +1,7 @@
 v2.3.7:
 * Github Workflow: `set-output` command is deprecated and will be disabled soon
 * Github Workflow: deprecated version of `actions/cache: v2`
-* [EVOL] Create the wsl operation manager script
+* [EVOL] Create the wsl operation manager script (wslops)
 * #28: [EVOL] Allows fish as defaut wsl shell (instance user defined shell)
 * #30: [EVOL] Add instance size in status
 * #32: Add wsl version in wslctl --version output

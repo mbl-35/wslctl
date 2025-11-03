@@ -110,31 +110,33 @@ Class WslService {
         $this.WslListCache = $null
 
         # copy val_ini script (suppose /usr/local/bin on all OS)
-        $iniValPath = [FileUtils]::getResourcePath("ini_val.sh")
-        $iniUsrPath = [FileUtils]::getResourcePath("ini_user.sh")
-        $this.copy($name, $iniValPath, "/usr/local/bin/ini_val", $true)
-        $this.copy($name, $iniUsrPath, "/usr/local/bin/ini_usr", $true)
+        $wslOpsPath = [FileUtils]::getResourcePath("wslops.sh")
+        $this.copy($name, $wslOpsPath, "/usr/local/bin/wslops", $true)
 
         # Assert *nix file format
         $commandLine = @(
-            "sed -i 's/\r//' /usr/local/bin/ini_val"
-            "chmod +x /usr/local/bin/ini_val"
-            "sed -i 's/\r//' /usr/local/bin/ini_usr"
-            "chmod +x /usr/local/bin/ini_usr"
+            "sed -i 's/\r//' /usr/local/bin/wslops"
+            "chmod +x /usr/local/bin/wslops"
         )
 
-        # create default user
+        $wslOps = @( "ini-cfg" )
+        $wslOpsArgs = @(
+            "--file=/etc/wsl.conf"
+            "--ini-network-hostname=$($name)"
+            )
+
+        # create default user (should be replace with wsl-ops)
         if ($createDefaultUser) {
-             $commandLine += @(
-                "/usr/local/bin/ini_usr $($this.defaultUsername)"
-                "/usr/local/bin/ini_val /etc/wsl.conf user.default $($this.defaultUsername)"
+            $wslOps += @("user-account")
+            $wslOpsArgs += @(
+                "--username=$($this.defaultUsername)"
+                "--ini-user-default=$($this.defaultUsername)"
             )
         }
 
-        # set the wsl instance hostname & cleanup
+        # set the wsl instance hostname & cleanup (should be replace with wsl-ops)
         $commandLine += @(
-            "/usr/local/bin/ini_val /etc/wsl.conf network.hostname $($name)"
-            "rm -f /usr/local/bin/ini_usr"
+            "/usr/local/bin/wslops --operations={0} {1}" -f $($wslOps -Join "," ), $($wslOpsArgs -Join " ")
         )
         $commandLineTxt = $commandLine -Join ";"
         #Write-Verbose $commandLineTxt

@@ -80,8 +80,7 @@ Class FileUtils
         return $path;
     }
 
-    static [String] pathToUnix([String] $winPath) 
-    {
+    static [String] pathToUnix([String] $winPath) {
         if ($winPath.startsWith("/mnt/")) { return $winPath }
         if ($winPath -like "[A-Za-z]:*" ) { $fullPath="$winPath" }
         else { $fullPath = [FileUtils]::slashJoin((Get-Location).Path, "$winPath", '/') }

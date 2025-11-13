@@ -23,7 +23,7 @@ jobs:
         # Setting up the powershell module cache
       - name: Setup PowerShell module cache
         id: cacher
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
             path: ${{ steps.psmodulecache.outputs.modulepath }}
             key: ${{ steps.psmodulecache.outputs.keygen }}
@@ -58,7 +58,7 @@ jobs:
       #   # Setting up the powershell module cache
       # - name: Setup PowerShell module cache
       #   id: cacher
-      #   uses: actions/cache@v2
+      #   uses: actions/cache@v4
       #   with:
       #       path: ${{ steps.psmodulecachebuild.outputs.modulepath }}
       #       key: ${{ steps.psmodulecachebuild.outputs.keygen }}

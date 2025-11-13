@@ -5,6 +5,7 @@ using module "..\Application\AbstractController.psm1"
 using module "..\Service\RegistryService.psm1"
 using module "..\Service\BuilderService.psm1"
 using module "..\Service\WslService.psm1"
+using module "..\Service\BackupService.psm1"
 using module "..\Tools\FileUtils.psm1"
 using module "..\Tools\ExtendedConsole.psm1"
 
@@ -72,6 +73,52 @@ Class DefaultController : AbstractController {
         Write-Host "* $wslName created"
     }
 
+    [void] shrink([Array] $Arguments){
+        $this._assertArgument( $Arguments, 1, 2)
+        $wslName = $Arguments[0]
+        $wslOps = $false
+        $wslService = [WslService][ServiceLocator]::getInstance().get('wsl-wrapper')
+        $backupService = [BackupService][ServiceLocator]::getInstance().get('backup')
+
+        if (-Not $wslService.exists($wslName)) {
+            throw "No instance named '$wslName' found"
+        }
+        if ($Arguments.count -eq 2) {
+            try {
+                $wslOps=[System.Convert]::ToBoolean($Arguments[1])
+            } catch [FormatException] {
+                throw "Second optionnal argument has to be a boolean."
+            }
+        }
+        Write-Host ('-' * 79) -ForegroundColor Yellow
+        Write-Host "WARNING: $wslName need to be cleared before (wslop min..)."  -ForegroundColor Yellow
+        Write-Host ('-' * 79)  -ForegroundColor Yellow
+        Write-Host 'Press any key to continue or ESC to abord...'
+        [System.Console]::ReadKey()
+
+        $initial_size=[FileUtils]::sizeToHumanReadable($wslService.getInstanceSize($wslName))
+        if ($wslOps) {
+            Write-Host "* Call wslops cleanup operations"
+            if ($wslService.cleanup($wslName) -ne 0) {
+                throw "WslOps command result with errors.. "
+            }
+        }
+
+        # backup
+        Write-Host "* Backup '$wslName'"
+        $backupName=$backupService.create($wslName, "backup for shrink")
+        # restore
+        Write-Host "* Restore '$backupName' to $wslName"
+        $forceRestore=$true
+        $backupService.restore($backupName, $forceRestore)
+        # and remove
+        Write-Host "* Remove '$backupName'"
+        $backupService.remove($backupName)
+
+        $final_size=[FileUtils]::sizeToHumanReadable($wslService.getInstanceSize($wslName))
+        Write-Host "Initial size: $initial_size, final: $final_size"
+        Write-Host "* $wslName shrinked"
+    }
 
     [void] status([Array] $Arguments) {
         $this._assertArgument( $Arguments, 0, 1 )
@@ -403,6 +450,7 @@ Class DefaultController : AbstractController {
             @("   convert <wsl_name> <version>                     ", "Concert instance to specified wsl version"),
             @("   rename  <wsl_name> <wsl_name>                    ", "Rename a wsl instance"),
             @("   rm      <wsl_name>                               ", "Remove a wsl instance by name"),
+            @("   shrink  <wsl_name> [<true|false>]                ", "Shrink a wsl instance by name with optionnal wslops call"),
             @("   exec    <wsl_name> [|<file.sh>|<cmd>]            ", "Execute specified script|cmd on wsl instance by names"),
             @("   ls                                               ", "List all created wsl instance names"),
             @("   start   <wsl_name>                               ", "Start an instance by name"),

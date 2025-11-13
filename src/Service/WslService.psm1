@@ -242,7 +242,7 @@ Class WslService {
        if (-not $RegInfo ) {
             throw 'No Regedit key found'
         }
-        return "REGISTRY::" + $RegInfo.Name 
+        return "REGISTRY::" + $RegInfo.Name
     }
 
     [int64] getInstanceSize([String] $name) {
@@ -285,7 +285,7 @@ Class WslService {
                     $element.name, $status, $element.wslVersion = $lineWords
                     $element.running = $( $status -eq "Running" )
                     $element.size = $this.getInstanceSize($element.name)
-                    
+
                     if ($this.Instances.ContainsKey($element.name)) {
                         $element.from = $this.Instances.$($element.name).image
                         $element.creation = $this.Instances.$($element.name).creation
@@ -425,6 +425,17 @@ Class WslService {
         }
         $userShell=$userShell.Trim().Split(":")[-1]
         return $this.exec($name, @("$userShell","--login"))
+    }
+
+    [Int32] cleanup([string]$name){
+        if (-not $this.isRunning($name)) {
+            $this.start($name)
+        }
+        $cmdTxt="if [ -f {0} ]; then {0} {1}; fi;" -f
+                "/usr/local/bin/wslops",
+                "--operations=cleanup --ignore-errors --yes"
+        $cmdTxt += 'exit $?'
+        return $this.exec($name,@("$($cmdTxt)"), $true)
     }
 
     [Int32] exec([string]$name, [string]$scriptPath, [array]$scriptArgs) { return $this.exec($name, $scriptPath, $scriptArgs, $false) }

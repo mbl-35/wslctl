@@ -1,3 +1,6 @@
+v2.3.8:
+* error on ci for release : failed because it uses a deprecated version of `actions/cache: v2`
+
 v2.3.7:
 * review README
 * #31: [EVOL] Add shrink possibility for instance

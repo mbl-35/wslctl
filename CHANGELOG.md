@@ -1,5 +1,6 @@
 v2.3.8:
 * error on ci for release : failed because it uses a deprecated version of `actions/cache: v2`
+* error on ci for release: argument '.srcwslctl.ps1' is not recognized as the name of a script file
 
 v2.3.7:
 * review README

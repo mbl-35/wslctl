@@ -1,4 +1,7 @@
 v2.3.7:
+* review README
+* #31: [EVOL] Add shrink possibility for instance
+* [EVOL] Create the wsl customize script as task (wslops-customize)
 * Github Workflow: `set-output` command is deprecated and will be disabled soon
 * Github Workflow: deprecated version of `actions/cache: v2`
 * [EVOL] Create the wsl operation manager script (wslops)

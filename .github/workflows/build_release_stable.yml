@@ -90,7 +90,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Extract version to create Release
         #run: echo "::set-output name=version::$( pwsh .\src\wslctl.ps1 --version )"
-        run: echo "version=$( pwsh .\src\wslctl.ps1 --version )" >> $GITHUB_OUTPUT
+        run: echo "version=$( grep -Po '\bversion\s*=\s*"\K.*?(?=")' ./src/wslctl.ps1 )" >> $GITHUB_OUTPUT
         id: version
       - uses: actions/download-artifact@v4
       - run: cd artifact && md5sum *wslctl* > md5sums.txt

@@ -21,7 +21,8 @@ It can deal with WSL1 and WSL2 instances (only if system is configured).
 - [x] bash to wsl instance
 - [x] build distribution from Dockerfile
 - [x] custom configuration file
-- [ ] rename instance
+- [x] rename instance
+- [x] shrink instance
 - [ ] clone instance
 
 Registry Management
@@ -33,8 +34,8 @@ Registry Management
 - [x] download integrity (sha256)
 - [x] local cache cleanup
 - [x] multi repository management
-* [ ] accept .tar.xz files (@see https://github.com/Biswa96/WSLInstall/blob/master/docs/Make_RootFS.md)
-* [ ] main repository linked with (@see https://uk.lxd.images.canonical.com/images/)
+* [ ] accept .tar.xz (SquashFS) files (@see https://github.com/Biswa96/WSLInstall/blob/master/docs/Make_RootFS.md)
+
 
 Backup Management
 
@@ -88,6 +89,28 @@ Supported configuration parameters :
 | wsl     | wsl binary location        | "c:\\windows\\system32\\wsl.exe" |
 | appData | where to store everythings | "`{$env:LOCALAPPDATA}`\\Wslctl"  |
 
+> Note: The previous `appData` configuration parameter can be set as user windows environment variable named `WSLCTL`. 
+
+The specified directory (in `appData` or `WSLCTL`) will have the following structure:
+```bash
+.
+├── Backups
+│   ├── backups.json                        # Backup dictionary (wsl name, hash, descriptions..)
+│   ├── xxx-bkp.yy-amd64-wsl-rootfs.tar.gz  # yy-th backup for wsl named xxx
+│   └── ...
+├── Instances
+│   ├── xxx                                 # Base directory for wsl instance named xxx
+│   │   └── ext4.vhdx                       # Filesystem for wsl instance (v2)
+│   └── ...
+├── Registry
+│   ├── <registry_alias>
+│   │   └── register.json                   # Instances dictionary for that registry alias
+│   │   └── <wsl-sha>.tar.gz                # Downloaded cache file (rootfs wsl) needed for creation
+│   │   └── ...
+│   └── ...
+├── registry-buckets.json                   # List of configured registry buckets
+├── wsl-instances.json                      # Dictionaly of installed wsl instances
+```
 
 ## Quick start
 
@@ -146,17 +169,35 @@ PS> wslctl --help
 
 ### Wsl managment commands
 ```bash
-   create  <distro_name> [<wsl_name>] [--pwd=<pwd>]   Create a named wsl instance from distribution
-   convert <wsl_name> <version>                       Concert instance to specified wsl version
-   rm      <wsl_name>                                 Remove a wsl instance by name
-   exec    <wsl_name> [|<file.sh>|<cmd>]              Execute specified script|cmd on wsl instance by names
-   ls                                                 List all created wsl instance names
-   start   <wsl_name>                                 Start an instance by name
-   stop    <wsl_name>                                 Stop an instance by name
-   status [<wsl_name>]                                List all or specified wsl Instance status
-   halt                                               Shutdown all wsl instances
-   version [|<wsl_name>|default [|<version>]]         Set/get default version or get  wsl instances version
+   create  <distro_name> [<wsl_name>] [--v[1|2]]    Create a named wsl instance from distribution
+   convert <wsl_name> <version>                     Concert instance to specified wsl version
+   rename  <wsl_name> <wsl_name>                    Rename a wsl instance
+   rm      <wsl_name>                               Remove a wsl instance by name
+   shrink  <wsl_name> [<true|false>]                Shrink a wsl instance by name with optionnal wslops call
+   exec    <wsl_name> [|<file.sh>|<cmd>]            Execute specified script|cmd on wsl instance by names
+   ls                                               List all created wsl instance names
+   start   <wsl_name>                               Start an instance by name
+   stop    <wsl_name>                               Stop an instance by name
+   status [<wsl_name>]                              List all or specified wsl Instance status
+   halt                                             Shutdown all wsl instances
+   upgrade                                          Upgrade wsl engine
+   version [|<wsl_name>|default [|<version>]]       Set/get default version or get  wsl instances version
+   default [|<wsl_name>]                            Set/get default distribution name
 ```
+
+> Notes on shrink command. Right now:
+> 1. Using Optimize-VHD (Recommended for Windows Pro/Enterprise) requires elevated privileges (not the target)
+> 1. Using `diskpart` on the wsl virtual disk also require elevated privileges
+> 1. In September, 2023, a pre-release of WSL (2.0.0) enabled a new "sparse" mode to automatically 
+     shrink the image when files are removed. But it is still **experimental**, and lot of user report
+     problems using it.
+> 1. That's why the `shrink` implemented method use an old way : export instance, remove and restore it.
+     It's simple, it works and it's safe (waiting for the stable sparse mode).
+     That method can automaticly call the `/usr/local/bin/wslops` script with operations set to cleanup
+     (by setting the extra method parameter to `true` - cf. help).
+     User can extend that script by writing a `/usr/local/bin/wslctl-customize` script (it will never be 
+     erased by wslctl, just called if exists).
+
 
 ### Wsl distribution registry commands
 ```bash
@@ -167,6 +208,7 @@ PS> wslctl --help
    registry purge                                   Remove all local registry content
    registry search <distro_pattern>                 Extract defined distributions from local registry
    registry ls                                      List local registry distributions
+   registry repositories                            List defined registry repositories
 ```
 
 ### Wsl backup managment commands
@@ -197,7 +239,7 @@ PS> wslctl --help
 ```powershell
 # create wsl instance named 'my-ubuntu' with release 'ubuntu-18.04'
 # default wsl version
-PS1> .\src\wslctl.cmd create --pwd=Chang3M3 my-ubuntu ubuntu-18.04
+PS1> .\src\wslctl.cmd create my-ubuntu ubuntu-18.04
 * Import my-ubuntu
 Check import requirements ...
 Download distribution 'ubuntu-18.04' ...
@@ -646,5 +688,19 @@ PS> Get-Help Get-ScriptAnalyzerRule -ShowWindow
 PS> ./make.ps1
 ```
 
+### Debug error
 
+Copy paste th following function to your shell, and call it after a script failure.. 
+```Powershell
+function Resolve-Error ($ErrorRecord=$Error[0]) {
+    $ErrorRecord | Format-List * -Force
+    $ErrorRecord.InvocationInfo |Format-List *
+    $Exception = $ErrorRecord.Exception
+    for ($i = 0; $Exception; $i++, ($Exception = $Exception.InnerException))
+    {   "$i" * 80
+        $Exception |Format-List * -Force
+    }
+}
+PS C:\Users\me> Resolve-Error
+```
 

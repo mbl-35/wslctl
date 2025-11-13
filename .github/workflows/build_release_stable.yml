@@ -98,7 +98,7 @@ jobs:
       - uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ steps.version.outputs.version }}
+          automatic_release_tag: "v${{ steps.version.outputs.version }}"
           prerelease: false
           draft: false
           body_path: CHANGELOG.md

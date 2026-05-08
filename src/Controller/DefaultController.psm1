@@ -73,7 +73,7 @@ Class DefaultController : AbstractController {
         Write-Host "* $wslName created"
     }
 
-    [void] shrink([Array] $Arguments){
+    [void] shrink([Array] $Arguments) {
         $this._assertArgument( $Arguments, 1, 2)
         $wslName = $Arguments[0]
         $wslOps = $false
@@ -85,8 +85,9 @@ Class DefaultController : AbstractController {
         }
         if ($Arguments.count -eq 2) {
             try {
-                $wslOps=[System.Convert]::ToBoolean($Arguments[1])
-            } catch [FormatException] {
+                $wslOps = [System.Convert]::ToBoolean($Arguments[1])
+            }
+            catch [FormatException] {
                 throw "Second optionnal argument has to be a boolean."
             }
         }
@@ -96,7 +97,7 @@ Class DefaultController : AbstractController {
         Write-Host 'Press any key to continue or ESC to abord...'
         [System.Console]::ReadKey()
 
-        $initial_size=[FileUtils]::sizeToHumanReadable($wslService.getInstanceSize($wslName))
+        $initial_size = [FileUtils]::sizeToHumanReadable($wslService.getInstanceSize($wslName))
         if ($wslOps) {
             Write-Host "* Call wslops cleanup operations"
             if ($wslService.cleanup($wslName) -ne 0) {
@@ -106,16 +107,16 @@ Class DefaultController : AbstractController {
 
         # backup
         Write-Host "* Backup '$wslName'"
-        $backupName=$backupService.create($wslName, "backup for shrink")
+        $backupName = $backupService.create($wslName, "backup for shrink")
         # restore
         Write-Host "* Restore '$backupName' to $wslName"
-        $forceRestore=$true
+        $forceRestore = $true
         $backupService.restore($backupName, $forceRestore)
         # and remove
         Write-Host "* Remove '$backupName'"
         $backupService.remove($backupName)
 
-        $final_size=[FileUtils]::sizeToHumanReadable($wslService.getInstanceSize($wslName))
+        $final_size = [FileUtils]::sizeToHumanReadable($wslService.getInstanceSize($wslName))
         Write-Host "Initial size: $initial_size, final: $final_size"
         Write-Host "* $wslName shrinked"
     }
@@ -262,7 +263,8 @@ Class DefaultController : AbstractController {
             ([string]$script, [array]$scriptArgs) = $commandline
             $scriptNoPath = Split-Path $script -Leaf
             Write-Host "Execute $scriptNoPath on $wslName ..." -ForegroundColor Yellow
-            if ($wslService.exec($wslName, $script, $scriptArgs) -ne 0) {
+            $wslService.invoke($wslName, $script, $scriptArgs)
+            if ($wslService.LastExitCode -ne 0) {
                 throw "Command result with errors"
             }
             return
@@ -270,7 +272,8 @@ Class DefaultController : AbstractController {
 
         # Inline Script execution
         Write-Host "Execute command '$commandline' on $wslName ..." -ForegroundColor Yellow
-        if ($wslService.exec($wslName, $commandline) -ne 0) {
+        $wslService.invoke($wslName, $commandline)
+        if ($wslService.LastExitCode -ne 0) {
             throw "Command result with errors"
         }
     }

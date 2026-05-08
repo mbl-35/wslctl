@@ -110,7 +110,11 @@ Class BuilderService
         $w.Close()
 
         # Call exec
-        $wslService.exec($wslName, $tempFile, @() )
+        $wslService.invoke(@{
+            distribution = $wslName
+            script = $tempFile
+            output = $true
+        })
 
         # remove temp file
         Remove-Item $tempFile

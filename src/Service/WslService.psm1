@@ -15,6 +15,7 @@ Class WslService {
 
     [JsonHashtableFile] $Instances
     [Array] $WslListCache
+    [int] $LastExitCode = 0
 
 
     WslService() {
@@ -43,6 +44,92 @@ Class WslService {
 
     [String] getLocation([String] $name) {
         return  [FileUtils]::joinPath($this.Location, $name)
+    }
+
+    
+    #    [string[]] invoke([string[]] $CommandArgs, [switch] $ShowOutput) {
+    [string[]] invoke([string]$cmdArgs) {
+        return $this.invoke(@{args = $cmdArgs })
+    }
+    [string[]] invoke([string]$cmdArgs, [boolean] $output) {
+        return $this.invoke(@{
+                args   = $cmdArgs
+                output = $output
+            })
+    }
+    [string[]] invoke([hashtable]$Parameters) {
+        $ht = @{
+            args         = $null
+            output       = $false
+            distribution = $null
+            script       = $null
+            script_args  = $null
+            root         = $false
+        }
+        $Parameters.GetEnumerator() | ForEach-Object { $ht[$_.Key] = $_.Value }
+        $processArgs = @()
+        if ($ht.distribution) { $processArgs += "--distribution $($ht.distribution)" }
+        if ($ht.root) { $processArgs += "-u root" }
+        if ($ht.args) { $processArgs += "$($ht.args)" }
+        if ($ht.script) { $processArgs += "-- $($ht.script)" }
+        if ($ht.script_args) { $processArgs += "$($ht.script_args)" }
+        if ($global:DEBUG) { Write-Host "[IO:$($ht.output)]> wsl $processArgs" }
+
+        if ($ht.output) {
+            $process = Start-Process $this.Binary $processArgs -NoNewWindow -Wait -ErrorAction Stop -PassThru
+            $this.LastExitCode = $process.ExitCode
+            return @()
+        }
+
+        # Save IO original Encoding
+        $originalOutputEncoding = [Console]::OutputEncoding
+        $originalInputEncoding = [Console]::InputEncoding
+        $originalOutputEncodingPS = $OutputEncoding
+
+        # Prepare processus 
+        $output = [System.Collections.Generic.List[string]]::new()
+        $psi = [System.Diagnostics.ProcessStartInfo]::new()
+        $psi.FileName = $this.Binary
+        $psi.Arguments = $processArgs -join " "
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+
+        try {
+            # switch to UTF8 encoding
+            $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+            [Console]::InputEncoding = $utf8NoBom
+            [Console]::OutputEncoding = $utf8NoBom
+            $OutputEncoding = $utf8NoBom
+
+            $process = [System.Diagnostics.Process]::Start($psi)
+
+            # capture outputs to final array
+            while (!$process.StandardOutput.EndOfStream) {
+                $line = $process.StandardOutput.ReadLine().Trim() -replace '\0|[\r\n]+', ''
+                if ($line) { $output.Add($line) }
+            }
+            while (!$process.StandardError.EndOfStream) {
+                $line = $process.StandardError.ReadLine().Trim()
+                if ($line) { Write-Error $line }
+            }
+            $process.WaitForExit()
+            $this.LastExitCode = $process.ExitCode
+        }
+        finally {
+            # restaure original ecoding
+            [Console]::InputEncoding = $originalInputEncoding
+            [Console]::OutputEncoding = $originalOutputEncoding
+            $OutputEncoding = $originalOutputEncodingPS
+        }
+        return $output
+    }
+
+
+    [bool] hasInstances() {
+        $consoleResult = $this.invoke("--list --verbose")
+        return -not ($consoleResult -match 'https://aka\.ms/wslstore|wsl\.exe')
     }
 
 
@@ -89,14 +176,18 @@ Class WslService {
             New-Item -ItemType Directory -Force -Path $dir | Out-Null
         }
 
-        & $this.Binary --import $name $dir $archive --version $version
-        if ($LastExitCode -ne 0) {
+        $this.invoke("--import $name $dir $archive --version $version", $true)
+        if ($this.LastExitCode -ne 0) {
             throw "Could not create '$name' instance"
         }
 
         # Adjust Wsl Distro Name
-        & $this.Binary --distribution $name -u root sh -c "mkdir -p /lib/init && echo WSL_DISTRO_NAME=$name > /lib/init/wsl-distro-name.sh"
-        if ($LastExitCode -ne 0) {
+        $this.invoke(@{
+                distribution = $name
+                script       = "mkdir -p /lib/init && echo WSL_DISTRO_NAME=$name > /lib/init/wsl-distro-name.sh"
+                root         = $true
+            })
+        if ( $this.LastExitCode -ne 0 ) {
             throw "Could not set '$name' /lib/init/wsl-distro-name.sh"
         }
         $returnCode = 0
@@ -111,7 +202,12 @@ Class WslService {
 
         # copy val_ini script (suppose /usr/local/bin on all OS)
         $wslOpsPath = [FileUtils]::getResourcePath("wslops.sh")
-        $this.copy($name, $wslOpsPath, "/usr/local/bin/wslops", $true)
+        $this.copy(@{
+                distribution = $name
+                source       = $wslOpsPath
+                destination  = "/usr/local/bin/wslops"
+                root         = $true
+            })
 
         # Assert *nix file format
         $commandLine = @(
@@ -123,7 +219,7 @@ Class WslService {
         $wslOpsArgs = @(
             "--file=/etc/wsl.conf"
             "--ini-network-hostname=$($name)"
-            )
+        )
 
         # create default user (should be replace with wsl-ops)
         if ($createDefaultUser) {
@@ -139,11 +235,16 @@ Class WslService {
             "/usr/local/bin/wslops --operations={0} {1}" -f $($wslOps -Join "," ), $($wslOpsArgs -Join " ")
         )
         $commandLineTxt = $commandLine -Join ";"
-        #Write-Verbose $commandLineTxt
 
         # execute all
-        $returnCode = $this.exec($name, @( "$commandLineTxt" ), $true)
-        & $this.Binary --terminate $name
+        $this.invoke(@{
+                distribution = $name
+                script       = $commandLineTxt
+                output       = $true
+                root         = $true
+            })
+        $returnCode = $this.LastExitCode
+        $this.invoke("--terminate $name")
         return $returnCode
     }
 
@@ -157,8 +258,11 @@ Class WslService {
         $backupTgz = "$backupTar.gz"
 
         # Export WSL
-        & $this.Binary --export $name $backupTar
-        & $this.Binary --distribution $name --exec gzip $backupTar
+        $this.invoke("--export $name $backupTar")
+        $this.invoke(@{
+                distribution = $name
+                args         = "--exec gzip $backupTar"
+            })
 
         $backupHash = [FileUtils]::sha256($backupTgz)
         $backupSize = [FileUtils]::getHumanReadableSize($backupTgz).Size
@@ -192,33 +296,29 @@ Class WslService {
             $this.terminate($name)
         }
 
-        &  $this.Binary --set-version $name $version
-        return $LastExitCode
+        $this.invoke("--set-version $name $version")
+        return $this.LastExitCode
     }
 
     [int32] start([String] $name) {
         # warning: wsl binary always returns 0 even if no distribution exists
-        &  $this.Binary --distribution $name -- nohup sleep 99999 `</dev/null `>/dev/null 2`>`&1 `& sleep 1
-        return $LastExitCode
+        $this.invoke(@{
+                distribution = $name
+                script       = "nohup sleep 99999 `</dev/null `>/dev/null 2`>`&1 `& sleep 1"
+            })
+        return $this.LastExitCode
     }
-
     [Int32] terminate([String] $name) {
-        & $this.Binary --terminate $name
-        return $LastExitCode
+        $this.invoque("--terminate $name", $true)
+        return $this.LastExitCode
     }
-
     [Int32] shutdown() {
-        & $this.Binary --shutdown
-        return $LastExitCode
+        $this.invoque("--shutdown", $true)
+        return $this.LastExitCode
     }
-
     [Int32] upgrade() {
-        $prev = [Console]::OutputEncoding;
-        [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
-        $consoleResult = @( (& $this.Binary --update)  | Where-Object { $_ -ne "" } )
-        [Console]::OutputEncoding = $prev
-        write-Host $consoleResult -Separator "`n"
-        return $LastExitCode
+        $this.invoke("--update", $true)
+        return $this.LastExitCode
     }
 
     [Boolean] isRunning([String] $name) {
@@ -235,18 +335,18 @@ Class WslService {
     }
 
     [String] getInstanceRegEditPath([String] $name) {
-        $RegInfo=Get-ChildItem -Path "REGISTRY::HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss" |
-            Where-Object {
-                (Get-ItemProperty -Path $_.PSPath -Name DistributionName).DistributionName -eq "$name"
-            } | Select-Object -Property Name
-       if (-not $RegInfo ) {
+        $RegInfo = Get-ChildItem -Path "REGISTRY::HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss" |
+        Where-Object {
+            (Get-ItemProperty -Path $_.PSPath -Name DistributionName).DistributionName -eq "$name"
+        } | Select-Object -Property Name
+        if (-not $RegInfo ) {
             throw 'No Regedit key found'
         }
         return "REGISTRY::" + $RegInfo.Name
     }
 
     [int64] getInstanceSize([String] $name) {
-        $RegDInstancePath=$this.getInstanceRegEditPath($name)
+        $RegDInstancePath = $this.getInstanceRegEditPath($name)
         $instanceDir = Get-ItemPropertyValue -Path $RegDInstancePath -Name BasePath
         $instanceSize = (Get-ChildItem -Recurse -LiteralPath "$instanceDir" | Measure-Object -Property Length -sum).sum
         return $instanceSize
@@ -257,26 +357,12 @@ Class WslService {
         if ($force -Or $null -eq $this.WslListCache) { $this.WslListCache = @() }
 
         if ($this.WslListCache.Count -eq 0) {
-            # Inexplicably, wsl --list verbose produces UTF-16LE-encoded
-            # ("Unicode"-encoded) output rather than respecting the
-            # console's (OEM) code page.
-            $prev = [Console]::OutputEncoding;
-            [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
-            $consoleResult = @( (& $this.Binary --list --verbose | Select-Object -Skip 1) | Where-Object { $_ -ne "" } )
-            [Console]::OutputEncoding = $prev
-
-
             #ISSUE-19: Display error wslctl ls when no distribution
-            $hasDistribution = (@( $consoleResult | Select-Object | Where-Object {
-                        $_ -like "https://aka.ms/wslstore"
-                    }).Length -eq 0)
-
-            if ($hasDistribution) {
+            if ($this.hasInstances()) {
                 $this._loadFile()
-                $consoleResult.GetEnumerator() | ForEach-Object {
+                $this.invoke("--list --verbose") | Select-Object -Skip 1 | ForEach-Object {
                     $lineWords = [array]($_.split(" ") | Where-Object { $_ })
                     $element = [WslElement]::new()
-
                     if ($lineWords.Length -eq 4) {
                         # this is the default distribution
                         $element.default = $true
@@ -285,7 +371,6 @@ Class WslService {
                     $element.name, $status, $element.wslVersion = $lineWords
                     $element.running = $( $status -eq "Running" )
                     $element.size = $this.getInstanceSize($element.name)
-
                     if ($this.Instances.ContainsKey($element.name)) {
                         $element.from = $this.Instances.$($element.name).image
                         $element.creation = $this.Instances.$($element.name).creation
@@ -329,8 +414,8 @@ Class WslService {
             return -1
         }
 
-        & $this.Binary --set-default $name
-        return $LastExitCode
+        $this.invoke("--set-default $name")
+        return $this.LastExitCode
     }
 
 
@@ -375,15 +460,16 @@ Class WslService {
         Rename-Item -Path $dir -NewName $newName | Out-Null
 
         # set the wsl instance hostname
-        $commandLine += @(
-            "[ -f /etc/wsl.conf ] && sed -i 's/hostname\s*=\s*.*/hostname = $($newName)/' /etc/wsl.conf"
-            "sed -i 's/ $($currentName) */ $($newName) /' /etc/hosts"
-        )
-        $commandLineTxt = $commandLine -Join ";"
-
-        # execute all
-        $returnCode = $this.exec($newName, @( "$commandLineTxt" ), $true)
-        & $this.Binary --terminate $newName
+        $this.invoke(@{
+                distribution = $newName
+                script       = @(
+                    "[ -f /etc/wsl.conf ] && sed -i 's/hostname\s*=\s*.*/hostname = $newName/' /etc/wsl.conf"
+                    "sed -i 's/ $currentName */ $newName /' /etc/hosts"
+                ) -Join ";"
+                root         = $true
+            })
+        $returnCode = $this.LastExitCode
+        $this.terminate($newName)
         return $returnCode
     }
 
@@ -393,8 +479,8 @@ Class WslService {
             throw "Instance '$name' not found"
         }
 
-        & $this.Binary --unregister $name
-        if ($LastExitCode -ne 0) {
+        $this.invoke("--unregister $name")
+        if ($this.LastExitCode -ne 0) {
             throw "Enable to remove '$name' instance"
         }
         $this._loadFile()
@@ -412,90 +498,63 @@ Class WslService {
 
     [Int32] connect([string]$name) {
         # detect user defined shell inside instance
-        $prev = [Console]::OutputEncoding;
-        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-        $userShell = @( (& $this.Binary "--user" root "--distribution" "$name" sh -c "getent passwd $env:USERNAME" ) ) -replace [char]0
-        [Console]::OutputEncoding = $prev
+        $response = $this.invoke(@{
+                distribution = $name
+                script       = "getent passwd $env:USERNAME"
+                root         = $true
+            })
 
-        if (-not $userShell){
-            # user shell not defined .. trying common shells
-            $shellArray = @('/bin/zsh', '/bin/bash', '/bin/sh')
-            $cmdTxt = (( $shellArray | ForEach-Object { "if [ -x $_ ]; then $_ --login;" } ) -Join " else ") + (" fi;" * $shellArray.Length) + ' exit $?'
-            return $this.exec($name, @("$($cmdTxt)"))
+        $shellArray = @('/bin/zsh', '/bin/bash'; '/bin/sh')
+        $shell = if ($response) { $response[0].Trim().Split(":")[-1] + " --login" } else {
+            (( $shellArray | ForEach-Object { "if [ -x $_ ]; then $_ --login;" } ) -Join " else ") + 
+            (" fi;" * $shellArray.Length) + ' exit $?'
         }
-        $userShell=$userShell.Trim().Split(":")[-1]
-        return $this.exec($name, @("$userShell","--login"))
+
+        $this.invoke(@{
+                distribution = $name
+                script       = "$shell"
+                output       = $true
+            })
+        return $this.LastExitCode
     }
 
-    [Int32] cleanup([string]$name){
+    [Int32] cleanup([string]$name) {
         if (-not $this.isRunning($name)) {
             $this.start($name)
         }
-        $cmdTxt="if [ -f {0} ]; then {0} {1}; fi;" -f
-                "/usr/local/bin/wslops",
-                "--operations=cleanup --ignore-errors --yes"
-        $cmdTxt += 'exit $?'
-        return $this.exec($name,@("$($cmdTxt)"), $true)
+        $this.invoke({
+                distribution = $name
+                script = "if [ -f {0} ]; then {0} {1}; fi; exit `$?" -f 
+                "/usr/local/bin/wslops", "--operations=cleanup --ignore-errors --yes"
+                output = $true
+                root = $true
+            })
+        return $this.LastExitCode
     }
 
-    [Int32] exec([string]$name, [string]$scriptPath, [array]$scriptArgs) { return $this.exec($name, $scriptPath, $scriptArgs, $false) }
-    [Int32] exec([string]$name, [string]$scriptPath, [array]$scriptArgs, [Boolean]$asRoot) {
-        if (-Not ([IO.Path]::GetExtension($scriptPath) -eq '.sh')) {
-            throw "Script has to be a shell file (extension '.sh')"
+    
+    [int32] copy([hashtable]$Parameters) {
+        $ht = @{
+            distribution = $null
+            source       = $null    # win
+            destination  = $null    # wsl
+            root         = $false
         }
-        if (-not (Test-Path $scriptPath -PathType leaf)) {
-            throw "Script not found"
-        }
-        $winScriptFullPath = Resolve-Path -Path $scriptPath -ErrorAction Stop
-        $wslScriptPath = $this.wslPath($winScriptFullPath)
-        $scriptNoPath = Split-Path $scriptPath -Leaf
-        $scriptTmpFile = "/tmp/$scriptNoPath"
+        $Parameters.GetEnumerator() | ForEach-Object { $ht[$_.Key] = $_.Value }
 
-        $commandLine = @(
-            "cp $wslScriptPath $scriptTmpFile"
-            "chmod +x $scriptTmpFile"
-            "SCRIPT_WINPATH=$wslScriptPath $scriptTmpFile $scriptArgs"
-            "return_code=`$?"
-            "rm $scriptTmpFile"
-            "exit `$return_code"
-        ) -Join ";"
-        return $this.exec($name, @( "$commandLine" ), $asRoot)
-    }
-
-    [Int32] exec([string]$name, [array]$commandline) { return $this.exec($name, $commandline, $false) }
-    [Int32] exec([string]$name, [array]$commandline, [Boolean]$asRoot) {
-        if ($null -eq $commandline ) { $commandline = @() }
-        if (-Not $this.exists($name)) {
-            throw "Instance '$name' not found"
-        }
-
-        $processArgs = "--distribution $name "
-        if ($asRoot) { $processArgs += "-u root " }
-        $processArgs += "-- $commandline"
-        $process = Start-Process $this.Binary $processArgs -NoNewWindow -Wait -ErrorAction Stop -PassThru
-        return $process.ExitCode
-    }
-
-    [int32] copy([string]$name, [string]$winSrcPath, [string]$wslDestPath){
-        return $this.copy($name,$winSrcPath,$wslDestPath, $false)
-    }
-    [int32] copy([string]$name, [string]$winSrcPath, [string]$wslDestPath, [Boolean]$asRoot){
         # check file exists
-        if (-not (Test-Path $winSrcPath -PathType leaf)) {
+        if (-not (Test-Path $ht.source -PathType leaf)) {
             throw "File not found"
         }
-
-        # resolve windows full path
-        $winSrcFullPath = Resolve-Path -Path $winSrcPath -ErrorAction Stop
-        # get same file accessible from wsl
-        $wslSrcFullPath = $this.wslPath($winSrcFullPath)
-        $commandLine = @(
-            "cp $wslSrcFullPath $wslDestPath"
-            "return_code=`$?"
-            "exit `$return_code"
-        ) -Join ";"
-        return $this.exec($name, @( "$commandLine" ),$asRoot)
+        # resolve windows full path & get same file accessible from wsl
+        $winFullPath = Resolve-Path -Path $ht.source -ErrorAction Stop
+        $winSrcFullPathFromWsl = $this.wslPath($winFullPath)
+        $this.invoke($ht + @{
+                script = "cp $winSrcFullPathFromWsl $($ht.destination); exit `$?"
+            })
+        return $this.LastExitCode
     }
+
 
     [String] wslPath([String] $winPath) {
         return [FileUtils]::pathToUnix($winPath)
@@ -503,23 +562,23 @@ Class WslService {
 
 
     [String] winPath([String] $wslPath) {
-        return & $this.Binary wslpath -w $wslPath.Replace('\', '\\')
+        # NOTE: must have a wsl instance for this ! add check
+        $escapedPath = $wslPath.Replace('\', '\\')
+        return ($this.invoke("wslpath -w $escapedPath") | 
+            Select-Object -First 1)
     }
 
     [String] getCoreVersion() {
-        $prev = [Console]::OutputEncoding;
-        [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
-        $consoleResult = @( (& $this.Binary --version | Select-Object -First 1) -replace '[^.0-9]','')
-        [Console]::OutputEncoding = $prev
-        return $consoleResult
+return ($this.invoke("--version") | 
+            Select-Object -First 1) -replace '[^.0-9]', ''
     }
 
     [Int32] setDefaultVersion([int] $version) {
         if (($version -lt 1) -or ($version -gt 2)) {
             throw "Invalid version number $version"
         }
-        & $this.Binary --set-default-version $version
-        return $LastExitCode
+        $this.invoke("--set-default-version $version")
+        return $this.LastExitCode
     }
 
     [String] getDefaultVersion() {

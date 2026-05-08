@@ -23,7 +23,7 @@ using module ".\Controller\BackupController.psm1"
 using module ".\Controller\RegistryController.psm1"
 
 
-$version = "2.3.8"
+$version = "2.3.9"
 
 # Activate debug:
 if ($global:DEBUG){

@@ -1,3 +1,8 @@
+v2.3.9:
+* Rewrite wsl process IO handling with a uniq method `invoke` in `WslService` class
+* #36: [BUG] `CheckBeforeImport` return error cannot convert System.Object[] to System.Int32
+* Add traces when `$global:DEBUG` is set to `$true`
+
 v2.3.8:
 * error on ci for release : failed because it uses a deprecated version of `actions/cache: v2`
 * error on ci for release: argument '.srcwslctl.ps1' is not recognized as the name of a script file

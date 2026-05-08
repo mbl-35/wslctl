@@ -25,6 +25,12 @@ using module ".\Controller\RegistryController.psm1"
 
 $version = "2.3.8"
 
+# Activate debug:
+if ($global:DEBUG){
+    $action = { break }
+    $null = Set-PSBreakpoint -Variable StackTrace -Mode Write -Action $action
+}
+
 [ServiceLocator]::getInstance().add( 'config', [AppConfig]::new($version) )
 
 # Setup Handlers
